@@ -1,6 +1,4 @@
 """End-to-end run of main.main() against a fake Sleeper/ESPN (no network)."""
-import json
-
 import config
 import main
 import nfl_data
@@ -63,10 +61,9 @@ def test_main_end_to_end(tmp_path, monkeypatch, capsys):
     assert "ADD Hot FA WR" in out and "DROP Scrub WR " in out  # weakest droppable WR goes
     assert "Rostered Elsewhere" not in out.split("TOP FREE AGENTS")[0]
     assert "KEEP Justin Jefferson" in out  # elite + Out -> protected, never dropped
-    data = json.loads((tmp_path / "week_5_recommendations.json").read_text())
-    assert data["moves"][0]["add"]["name"] == "Hot FA WR"
-    assert data["moves"][0]["drop"]["name"] == "Scrub WR"
-    assert data["injury_bye_watch"][0]["name"] == "Justin Jefferson"
-    assert data["lineup_score"]["gain"] > 0
     md = (tmp_path / "week_5_recommendations.md").read_text()
     assert md.startswith("# Week 5 Recommendations")
+    assert "**Drop Scrub WR** (WR" in md and "**add Hot FA WR**" in md
+    assert "- **Justin Jefferson**" in md.split("## Injury / bye watch")[1]
+    assert "current roster (+" in md  # positive gain
+    assert not list(tmp_path.glob("*.json"))

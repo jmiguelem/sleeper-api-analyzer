@@ -21,11 +21,6 @@ To adapt for another league, modify:
 ## Setup
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-```bash
 # Create virtual environment and install dependencies
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -55,6 +50,54 @@ python src/position.py FLEX              # View WR/RB/TE together
 
 Supported positions: `QB`, `RB`, `WR`, `TE`, `K`, `DEF`, `FLEX`
 
+`src/position.py` ranks a single position using the same scoring and lineup logic as `main.py`. It's useful for a quick look at one spot in your lineup without the full report. It prints a table to the terminal only and doesn't write any files to `recommendations/`.
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `POSITION` | Required. One of `QB`, `RB`, `WR`, `TE`, `K`, `DEF`, `FLEX` (case-insensitive). `FLEX` includes WR, RB, and TE |
+| `--top N` | Show only the N best players from the list. With `--fa-only`, show the N best free agents instead of the default 5 |
+| `--fa-only` | Hide your rostered players and show only free agents |
+| `--week N` | NFL week to analyze (default: current week) |
+| `--refresh` | Ignore cached API responses and fetch fresh data |
+
+#### What's listed
+
+The list holds every player on your roster at that position, plus the top 5 available free agents. Free agents who are on bye, or listed as Out, Doubtful, IR, PUP, suspended, or NA, are left out. Everyone is sorted by score together, whether they're yours or a free agent, so you can compare them side by side.
+
+#### Columns
+
+| Column | Meaning |
+|--------|---------|
+| `#` | Rank by score within this list |
+| `Player` | Player name |
+| `Owner` | `Mine` (on your roster) or `FA` (free agent) |
+| `Pos` | Player position |
+| `Tier` | Elite / Mid / Bench, from `tier_cutoffs.json` |
+| `Rank` | Positional rank (`-` if unranked) |
+| `Matchup` | Opponent and defense-rank note behind the matchup adjustment, prefixed with injury status if any (`BYE` on bye weeks) |
+| `Proj` | League-scored weekly projection |
+| `Form` | Average points over the last 3 weeks (`-` if no data) |
+| `Score` | Final blended score (see [Scoring Methodology](#scoring-methodology)) |
+| `Status` | What the full recommender does with this player (see below) |
+
+#### Status values
+
+| Status | Meaning |
+|--------|---------|
+| `Starter: <SLOT>` | Rostered player in the optimal lineup at that slot |
+| `ADD to <SLOT>` | Free agent the recommender would pick up for that slot |
+| `DROP (for <name>)` | Rostered player the recommender would drop for that free agent |
+| `Bench` | Rostered player not in the optimal lineup |
+| `Bench - protected, out this week` | Unavailable Elite/Mid player who won't be dropped |
+| `Reserve / IR` | Player in an IR/reserve slot (never touched) |
+| `Free agent` | Free agent not recommended for pickup |
+
+> **Note:** A free agent can rank above one of your players and still show `Free agent`. That's because the recommender only suggests a swap when the score gap is at least the position's `swap_margin`, or `elite_swap_margin` for Elite players. The ranking itself doesn't use the margin.
+
+If the data can't be loaded, the script prints `ERROR: ...` to stderr and exits with code 1. Any data warnings, such as missing ESPN stats, are printed below the table.
+
 ### Running Tests
 
 ```bash
@@ -63,13 +106,12 @@ python -m pytest
 
 ## Output
 
-Each analysis run generates three outputs:
+Each analysis run generates two outputs:
 
 | Format | File | Contents |
 |--------|------|----------|
-| Terminal | stdout | Formatted table with lineup and recommendations |
-| Markdown | `recommendations/week_<N>_recommendations.md` | Report with moves and player details |
-| JSON | `recommendations/week_<N>_recommendations.json` | Complete dataset for programmatic access |
+| Terminal | stdout | Formatted table with optimal lineup and recommended moves |
+| Markdown | `recommendations/week_<N>_recommendations.md` | Detailed report with moves, tiers, and matchups |
 
 ## Algorithm
 
@@ -135,17 +177,7 @@ Invalid or missing entries in `tier_cutoffs.json` will cause the tool to exit wi
 - Elite and Mid-tier players marked unavailable (out, injured, bye) are never dropped
 - Players in IR/reserve slots are never touched
 - Only positions used in your lineup can be dropped
-- Free agents marked out/doubtful are never recommended for pickup
-
-## Output
-
-Each analysis run generates three outputs:
-
-| Format | File | Contents |
-|--------|------|----------|
-| Terminal | stdout | Formatted table with optimal lineup and recommended moves |
-| Markdown | `recommendations/week_<N>_recommendations.md` | Detailed report with moves, tiers, and matchups |
-| JSON | `recommendations/week_<N>_recommendations.json` | Complete dataset for programmatic access |
+- Free agents on bye or listed as Out, Doubtful, IR, PUP, suspended, or NA are never recommended for pickup
 
 ## Project Structure
 
@@ -158,7 +190,7 @@ src/
   ├── player_tier.py          Player tier classification logic
   ├── analyzer.py             Player evaluation and scoring
   ├── recommender.py          Lineup optimization algorithm
-  ├── report.py               Output formatting (terminal, markdown, JSON)
+  ├── report.py               Output formatting (terminal, markdown)
   ├── main.py                 Primary analysis entry point
   └── position.py             Per-position analysis script
 tests/                         Unit tests + full end-to-end mock run

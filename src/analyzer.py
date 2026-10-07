@@ -13,7 +13,7 @@ Where:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Optional
 
 import config
@@ -40,13 +40,6 @@ class PlayerEval:
     available: bool                  # False if bye or ruled out
     on_reserve: bool = False
     is_free_agent: bool = False
-
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        for k in ("proj", "trend", "matchup_adj", "score"):
-            if d[k] is not None:
-                d[k] = round(d[k], 2)
-        return d
 
 
 def composite_score(proj: float, trend: Optional[float], adj: float) -> float:

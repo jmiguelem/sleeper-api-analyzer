@@ -119,8 +119,8 @@ def main(argv=None) -> int:
 
     result = recommender.recommend(roster, free_agents, meta["slots"])
     print(report.render_text(result, roster, meta, args.show_all, free_agents))
-    md_path, json_path = report.save_outputs(result, roster, meta)
-    print(f"\nSaved: {md_path}\n       {json_path}")
+    md_path = report.save_markdown(result, roster, meta)
+    print(f"\nSaved: {md_path}")
     return 0
 
 

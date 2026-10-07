@@ -1,11 +1,10 @@
 """Format and export analysis results.
 
-Provides rendering functions for terminal output, Markdown reports, and JSON export
+Provides rendering functions for terminal output and Markdown reports
 of lineup recommendations and player evaluations.
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -135,38 +134,11 @@ def render_markdown(result: Result, roster: list[PlayerEval], meta: dict) -> str
     return "\n".join(md) + "\n"
 
 
-def _slot_json(slots) -> list[dict]:
-    return [{"slot": s.position, "add": s.is_add, "player": s.player.to_dict() if s.player else None}
-            for s in slots]
-
-
-def to_json(result: Result, roster: list[PlayerEval], meta: dict) -> dict:
-    return {
-        "meta": meta,
-        "rules": {
-            "lineup_slots": meta.get("slots") or config.LINEUP_SLOTS,
-            "tiers": config.TIERS,
-            "weights": {"projection": config.W_PROJECTION, "matchup": config.W_MATCHUP, "trend": config.W_TREND},
-        },
-        "lineup_score": {"current": round(result.current_total, 2), "after_moves": round(result.optimal_total, 2),
-                         "gain": round(result.gain, 2)},
-        "moves": [{"drop": m.drop.to_dict(), "add": m.add.to_dict(), "slot": m.slot, "reason": m.reason}
-                  for m in result.moves],
-        "starters": _slot_json(result.starters),
-        "flex": _slot_json(result.flex),
-        "bench": [p.to_dict() for p in result.bench],
-        "injury_bye_watch": [p.to_dict() for p in result.watch],
-        "roster": [p.to_dict() for p in roster],
-    }
-
-
-def save_outputs(result: Result, roster: list[PlayerEval], meta: dict) -> tuple[Path, Path]:
+def save_markdown(result: Result, roster: list[PlayerEval], meta: dict) -> Path:
     config.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     md_path = config.OUTPUT_DIR / f"week_{meta['week']}_recommendations.md"
-    json_path = config.OUTPUT_DIR / f"week_{meta['week']}_recommendations.json"
     md_path.write_text(render_markdown(result, roster, meta))
-    json_path.write_text(json.dumps(to_json(result, roster, meta), indent=2))
-    return md_path, json_path
+    return md_path
 
 
 def now_iso() -> str:
