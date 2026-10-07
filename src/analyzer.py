@@ -1,4 +1,16 @@
-"""Scoring: turn raw Sleeper/ESPN data into comparable per-player evaluations."""
+"""Player evaluation and scoring.
+
+Converts raw Sleeper projections and ESPN matchup data into scored PlayerEval objects
+for comparison and ranking in lineup optimization.
+
+Composite score formula:
+  score = 0.50 × projection + 0.40 × matchup_adjusted + 0.10 × trend
+
+Where:
+  - projection: Sleeper weekly projection, re-scored with league settings
+  - matchup_adjusted: projection ± (30% × matchup strength factor)
+  - trend: average points over last 3 weeks (or None if unavailable)
+"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

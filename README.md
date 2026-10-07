@@ -1,7 +1,22 @@
 # sleeper-api-analyzer
 
-On-demand CLI that reviews your **National Gooning Association** Sleeper roster, scans the free-agent pool,
-checks each player's real-life opponent for the week, and builds the **optimal starting lineup** (QB, RB, WR, TE, FLEX, K, DEF) for maximum points.
+Fantasy football lineup optimizer using Sleeper API and ESPN matchup data. Analyzes your roster, identifies optimal weekly lineups, and recommends player swaps based on real-time opponent matchups.
+
+## League-Specific Configuration
+
+This tool is **configured for a specific Sleeper league**. The following are hardcoded:
+
+| Aspect | Details |
+|--------|---------|
+| **League Setup** | Single league with ID in `src/config.py` |
+| **Roster Format** | 1 QB, 2 RB, 2 WR, 1 TE, 2 FLEX, 1 K, 1 DEF |
+| **Scoring Rules** | Uses exact scoring settings from Sleeper league |
+| **Tier Cutoffs** | Customized per position in `tier_cutoffs.json` |
+
+To adapt for another league, modify:
+1. `LEAGUE_ID` and `USER_ID` in `src/config.py` (or set via `.env`)
+2. Tier ranks and swap margins in `tier_cutoffs.json`
+3. Verify roster format matches your league's `roster_positions`
 
 ## Setup
 
@@ -10,97 +25,148 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-League and user IDs are already set as defaults in `src/config.py`. To override, copy `.env.example` to `.env`.
-
-## Run
-
 ```bash
-python src/main.py                 # current NFL week
-python src/main.py --week 6        # specific week
-python src/main.py --show-all      # also list the top free agents per position
-python src/main.py --refresh       # ignore cached API responses
-python -m pytest                   # tests
+# Create virtual environment and install dependencies
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Single-position view
+Configuration can be overridden by creating `.env` with custom `LEAGUE_ID` and `USER_ID`.
+
+## Usage
+
+### Full Lineup Analysis
 
 ```bash
-python src/position.py WR            # your WRs + the 5 best free-agent WRs, ranked by score (owner ignored)
-python src/position.py RB --top 6    # only the 6 best of that list
-python src/position.py WR --fa-only  # only free agents (top 5, or the N best with --top N)
-python src/position.py FLEX          # WR/RB/TE together (also QB, TE, K, DEF)
+python src/main.py                 # Analyze current NFL week
+python src/main.py --week 6        # Analyze specific week
+python src/main.py --show-all      # Include top 5 free agents per position
+python src/main.py --refresh       # Skip cache, fetch fresh data
 ```
 
-Uses the same scoring and lineup logic as the full run. Each row shows owner (Mine/FA), tier, matchup,
-projection, form, score and what the recommender does with that player (starter slot, ADD, DROP, bench, protected).
-Prints to the terminal only.
+### Position-Specific Analysis
 
-Every full run prints to the terminal **and** writes `recommendations/week_<N>_recommendations.md` and `.json`.
+```bash
+python src/position.py WR                # Your WRs plus top 5 free-agent WRs
+python src/position.py RB --top 6        # Limit results to top 6
+python src/position.py WR --fa-only      # Show only free agents
+python src/position.py FLEX              # View WR/RB/TE together
+```
 
-## How it works
+Supported positions: `QB`, `RB`, `WR`, `TE`, `K`, `DEF`, `FLEX`
 
-The tool reads your league's starting slots from Sleeper (`roster_positions`, falling back to 1 QB, 2 RB, 2 WR, 1 TE, 2 FLEX, 1 K, 1 DEF) and builds the best lineup from your roster + free agents:
+### Running Tests
 
-### Phase 1: Lock Starters
-- For each fixed slot (QB, RB, WR, TE, K, DEF), pick the best **available** player at that position.
-- Unavailable players (bye/injured) are skipped during this phase.
-
-### Phase 2: Fill FLEX Slots
-- From remaining available players, fill each FLEX slot (WR/RB/TE; SUPER_FLEX also allows QB) with the best eligible player.
-- Positions are compared against each other here, so any mix is possible.
-
-### Phase 3: Build Bench
-- Everyone else goes to the bench, sorted by score.
-- **Protected players** (Elite or Mid tier unavailable) are kept here, never dropped.
-
-### Phase 4: Recommend Moves
-- Each free agent who made the lineup is paired with a rostered WR/RB/TE to drop (weakest value first).
-- A free agent must beat the rostered player he displaces by that position's `swap_margin` (the larger `elite_swap_margin` for an available Elite player), otherwise no move. Both come from `tier_cutoffs.json`.
-- If nobody can legally be dropped for a free agent, that free agent is not recommended.
-- Output shows lineup score with your current roster vs after the moves.
-
-## Scoring & Tiers
-
-1. **Projections**: Sleeper's weekly projected stats, re-scored with *your league's* scoring settings.
-
-2. **Matchup** (ESPN season-to-date stats, rank 1 = best defense):
-   - QB / WR / TE: opponent **pass defense** (net passing yards allowed per game)
-   - RB: opponent **run defense** (rushing yards allowed per game)
-   - DEF: opponent **offense** (yards per game); K: neutral
-
-3. **Composite Score** = 50% projection + 40% matchup-adjusted projection (±30% swing) + 10% recent form (3 games).
-
-4. **Tier** (based on `search_rank`, a popularity proxy):
-   - **Elite**: rank ≤ `elite_rank` → protected from drops if unavailable; free agents need the larger `elite_swap_margin` to displace
-   - **Mid**: rank ≤ `mid_rank` → protected from drops if unavailable
-   - **Bench**: below that → can drop if needed
-   - All tier cutoffs **and swap margins** are in **`tier_cutoffs.json`** at the repo root, one explicit entry per position (QB, RB, WR, TE, K, DEF). Edit it and re-run; there are no hidden defaults in the code, and a missing or invalid entry stops the run with a clear message.
-
-5. **Tier Protection**: Elite and Mid unavailable players are **never dropped**. They're kept on the bench for next week.
-   Players in your IR/reserve slot are never touched, and only positions your lineup uses can be dropped.
-   Free agents who are out/doubtful are never suggested.
-
-Tier cutoffs and swap margins live in `tier_cutoffs.json`; score weights and other constants live in `src/config.py`.
+```bash
+python -m pytest
+```
 
 ## Output
 
-Each run generates:
-- **Terminal output**: Optimal lineup with recommended moves, tier, matchup, and composite score for each player.
-- **Markdown report**: Week_<N>_recommendations.md with tables and summaries.
-- **JSON**: week_<N>_recommendations.json with full player data and move details.
+Each analysis run generates three outputs:
 
-## Layout
+| Format | File | Contents |
+|--------|------|----------|
+| Terminal | stdout | Formatted table with lineup and recommendations |
+| Markdown | `recommendations/week_<N>_recommendations.md` | Report with moves and player details |
+| JSON | `recommendations/week_<N>_recommendations.json` | Complete dataset for programmatic access |
+
+## Algorithm
+
+The tool reads your league's roster format from Sleeper and applies a four-phase lineup optimization algorithm:
+
+### Phase 1: Lock Starters
+
+For each fixed position (QB, RB, WR, TE, K, DEF), select the best available player at that position. Players marked as out, injured, or on bye are excluded.
+
+### Phase 2: Fill FLEX Slots
+
+Fill FLEX slots with the highest-scoring remaining available players. FLEX slots compare players cross-position (WR, RB, TE eligible; SUPER_FLEX also allows QB), allowing optimal allocation regardless of position scarcity.
+
+### Phase 3: Build Bench
+
+All remaining rostered players go to the bench, sorted by score. Elite and Mid-tier unavailable players are protected here and never recommended for drop.
+
+### Phase 4: Recommend Moves
+
+For each free agent in the optimal lineup, identify the lowest-value rostered player available for drop. A swap is recommended only if the free agent's score exceeds the rostered player's by at least the position's `swap_margin` (or `elite_swap_margin` for available Elite players). Output compares lineup score before and after proposed moves.
+
+## Scoring Methodology
+
+### Player Scoring
+
+Player scores are computed from three components:
+
+1. **Projection** (50%)
+   - Sleeper's weekly projected stats, re-scored using your league's exact scoring settings
+
+2. **Matchup Strength** (40%)
+   - Opponent pass defense rank for QB/WR/TE (net passing yards allowed per game)
+   - Opponent run defense rank for RB (rushing yards allowed per game)
+   - Opponent overall offense rank for DEF (total yards per game)
+   - Kicker positions are not adjusted for matchup
+   - Adjustment range: ±30% swing on projection
+
+3. **Recent Form** (10%)
+   - Average scoring over the last 3 weeks
+   - Provides volatility adjustment for trending players
+
+**Formula:** `score = 0.50 × projection + 0.40 × matchup_adjusted_projection + 0.10 × trend`
+
+### Player Tiers
+
+Tiers are assigned based on `search_rank`, a player popularity metric from Sleeper:
+
+| Tier | Criteria | Protection | Swap Margin |
+|------|----------|-----------|-------------|
+| Elite | rank ≤ elite_rank | Protected if unavailable | `elite_swap_margin` |
+| Mid | rank ≤ mid_rank | Protected if unavailable | `swap_margin` |
+| Bench | rank > mid_rank | Not protected | `swap_margin` |
+
+All tier definitions are **explicitly configured in `tier_cutoffs.json`** with no code defaults. Each position has:
+- `elite_rank` / `mid_rank` (or null for K/DEF)
+- `swap_margin` (points needed to justify dropping a rostered player)
+- `elite_swap_margin` (higher threshold for Elite players)
+
+Invalid or missing entries in `tier_cutoffs.json` will cause the tool to exit with a clear error message.
+
+### Tier Protection Rules
+
+- Elite and Mid-tier players marked unavailable (out, injured, bye) are never dropped
+- Players in IR/reserve slots are never touched
+- Only positions used in your lineup can be dropped
+- Free agents marked out/doubtful are never recommended for pickup
+
+## Output
+
+Each analysis run generates three outputs:
+
+| Format | File | Contents |
+|--------|------|----------|
+| Terminal | stdout | Formatted table with optimal lineup and recommended moves |
+| Markdown | `recommendations/week_<N>_recommendations.md` | Detailed report with moves, tiers, and matchups |
+| JSON | `recommendations/week_<N>_recommendations.json` | Complete dataset for programmatic access |
+
+## Project Structure
 
 ```
-tier_cutoffs.json   Elite/Mid rank cutoffs and swap margins per position (edit this)
-src/   config.py  sleeper_client.py  nfl_data.py  player_tier.py  analyzer.py  recommender.py  report.py  main.py  position.py
-tests/ unit tests + a fully mocked end-to-end run (no network needed)
-.cache/            cached API responses (gitignored)
-recommendations/   generated weekly reports
+tier_cutoffs.json              Configuration: tier ranks and swap margins per position
+src/
+  ├── config.py               Central configuration (league IDs, scoring weights, paths)
+  ├── sleeper_client.py       Sleeper API client with response caching
+  ├── nfl_data.py             ESPN team statistics and matchup data
+  ├── player_tier.py          Player tier classification logic
+  ├── analyzer.py             Player evaluation and scoring
+  ├── recommender.py          Lineup optimization algorithm
+  ├── report.py               Output formatting (terminal, markdown, JSON)
+  ├── main.py                 Primary analysis entry point
+  └── position.py             Per-position analysis script
+tests/                         Unit tests + full end-to-end mock run
+.cache/                        Cached API responses (gitignored)
+recommendations/               Generated weekly reports
 ```
 
-## Known limits
+## Limitations
 
-- ESPN stats are season-to-date, so early-season ranks are noisy.
-- Only the ESPN team-statistics format is parsed defensively; if it changes, the tool warns and falls back to
-  projection-only scoring instead of failing.
+- **ESPN stats noise**: Season-to-date offensive/defensive rankings are unreliable early in the season
+- **Format resilience**: ESPN's data structure is monitored. If the format changes, the tool logs a warning and falls back to projection-only scoring

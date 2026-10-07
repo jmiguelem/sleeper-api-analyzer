@@ -1,31 +1,21 @@
-"""Lineup optimization: build the best weekly lineup from your roster + free agents.
+"""Lineup optimization and recommendation engine.
 
-League format: read from the league's roster_positions (config.slots_from_league), e.g.
-1 QB, 2 RB, 2 WR, 1 TE, 2 FLEX (WR/RB/TE), 1 K, 1 DEF.
+Four-phase algorithm:
+  1. Fill fixed positions (QB, RB, WR, TE, K, DEF) with best available
+  2. Fill FLEX slots with best remaining eligible players
+  3. Place remaining roster players on bench
+  4. Generate moves: pair free agents with droppable rostered players
 
-Algorithm
----------
-1. Starters first: fill the fixed slots (QB, RB, WR, TE, K, DEF) with the best players
-   of that position (roster + free agents), FLEX not considered yet.
-2. FLEX second: the best remaining eligible players (WR/RB/TE; QB too for SUPER_FLEX),
-   compared against each other regardless of position.
-3. Bench: every rostered player who did not make the lineup.
-4. Moves: each free agent that made the lineup is paired with a rostered player to
-   drop (lowest value first).
+Ranking value calculation:
+  - Free agents: score - swap_margin (must beat by threshold to justify swap)
+  - Available Elite players: score + (elite_swap_margin - swap_margin)
+  - Other players: score
 
-Ranking value (what players are compared by)
---------------------------------------------
-* A free agent is ranked at ``score - swap_margin``: he only displaces a rostered player
-  if he is better by at least that margin (per position, tier_cutoffs.json).
-* A rostered, available Elite player is ranked at ``score + (elite_swap_margin -
-  swap_margin)``: a free agent needs the larger elite_swap_margin to displace him.
-
-Protection rules
-----------------
-* Unavailable (out / bye) Elite and Mid players are never dropped; they sit on the
-  bench and are listed in ``watch`` so you know a slot is being covered.
-* Only players at positions the lineup uses can be dropped, and never reserve/IR players.
-* A free agent is only recommended if there is someone legal to drop for him.
+Protection rules:
+  - Elite/Mid unavailable players: never dropped (protected on bench)
+  - IR/reserve players: never touched
+  - Only positions used in lineup can be dropped
+  - Free agents who are out/doubtful: never recommended
 """
 from __future__ import annotations
 

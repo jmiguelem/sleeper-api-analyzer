@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Sleeper fantasy optimizer - run on demand:  python src/main.py [--week N] [--show-all]"""
+"""Primary analysis entry point.
+
+Orchestrates data fetching from Sleeper and ESPN APIs, evaluates players, and
+generates optimal lineup recommendations with move suggestions.
+
+Usage:
+  python src/main.py              # Analyze current NFL week
+  python src/main.py --week 6     # Analyze specific week
+  python src/main.py --show-all   # Include top free agents per position
+  python src/main.py --refresh    # Skip cache, fetch fresh data
+"""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +25,14 @@ from sleeper_client import DataError, SleeperClient
 
 
 def build(args) -> tuple:
+    """Orchestrate analysis pipeline.
+
+    Fetches data from Sleeper and ESPN APIs, evaluates all players, generates
+    optimal lineup, recommends moves, and produces outputs.
+
+    Returns:
+      Tuple of (Result, roster, metadata) for reporting
+    """
     client = SleeperClient(config.LEAGUE_ID, config.USER_ID, refresh=args.refresh)
     warnings: list[str] = []
 

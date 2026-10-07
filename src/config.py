@@ -1,5 +1,8 @@
-"""Central configuration. League/user IDs are hardcoded defaults (single league),
-overridable through a local .env file."""
+"""Central configuration for analysis tool.
+
+League IDs are hardcoded as defaults (single-league setup) but can be overridden
+via .env file using SLEEPER_LEAGUE_ID and SLEEPER_USER_ID environment variables.
+"""
 from __future__ import annotations
 
 import os
@@ -7,32 +10,47 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-except ImportError:  # python-dotenv is optional; defaults below still work
+except ImportError:
     load_dotenv = None
 
+# Root directory of the project
 ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env file if python-dotenv is available
 if load_dotenv:
     load_dotenv(ROOT / ".env")
 
-# --- League (National Gooning Association) -----------------------------------
+# ==============================================================================
+# LEAGUE CONFIGURATION
+# ==============================================================================
+
 LEAGUE_ID = os.getenv("SLEEPER_LEAGUE_ID", "1395860624533094400")
 USER_ID = os.getenv("SLEEPER_USER_ID", "1395864061605855232")
-USERNAME = os.getenv("SLEEPER_USERNAME", "mikelizalde")
+USERNAME = os.getenv("SLEEPER_USERNAME", "")
 
-# --- Recommendation rules ----------------------------------------------------
-# Tier cutoffs and swap margins per position live in tier_cutoffs.json (no defaults here).
+# ==============================================================================
+# SCORING CONFIGURATION
+# ==============================================================================
 
 # Composite score weights (must sum to 1.0)
+# score = 0.50 × projection + 0.40 × matchup + 0.10 × trend
 W_PROJECTION = 0.50
 W_MATCHUP = 0.40
 W_TREND = 0.10
-# Max +/- swing a perfect/awful matchup applies to a projection (0.30 = +/-30%).
-# With W_MATCHUP = 0.40 this moves the final score by at most +/-12%.
+
+# Maximum swing (±) on projection due to matchup strength
+# With W_MATCHUP = 0.40, this translates to max ±12% swing on final score
 MATCHUP_SWING = 0.30
+
+# Number of recent weeks to average for trend calculation
 TREND_WEEKS = 3
 
-# Tiering and swap margins per position: read from tier_cutoffs.json (repo root).
-# Rank = Sleeper search_rank order within the position. See the "_help" entry in that file.
+# ==============================================================================
+# TIER CONFIGURATION
+# ==============================================================================
+# All tier definitions are read from tier_cutoffs.json with explicit validation.
+# No code defaults exist; missing entries will cause tool exit with clear error.
+
 TIER_FILE = ROOT / "tier_cutoffs.json"
 _ALL_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 _FIELDS = ("elite_rank", "mid_rank", "swap_margin", "elite_swap_margin")
@@ -79,46 +97,59 @@ def load_tiers(path=None) -> dict:
     return tiers
 
 
+# Load tier configuration from tier_cutoffs.json
 TIERS = load_tiers()
 TIERED_POSITIONS = tuple(p for p in _ALL_POSITIONS if TIERS[p]["elite_rank"] is not None)
 
 
-def elite_rank(position: str):
+def elite_rank(position: str) -> int | None:
+    """Get elite tier cutoff rank for a position."""
     return TIERS[position]["elite_rank"]
 
 
-def mid_rank(position: str):
+def mid_rank(position: str) -> int | None:
+    """Get mid tier cutoff rank for a position."""
     return TIERS[position]["mid_rank"]
 
 
 def swap_margin(position: str) -> float:
-    """Points a free agent must beat a rostered player at this position by."""
+    """Get swap margin (points needed to justify roster swap) for a position."""
     return TIERS[position]["swap_margin"]
 
 
-def elite_swap_margin(position: str):
-    """Margin needed to replace an available Elite player (None for K/DEF: no tiers)."""
+def elite_swap_margin(position: str) -> float | None:
+    """Get elite swap margin for a position (higher threshold for Elite tier players)."""
     return TIERS[position]["elite_swap_margin"]
 
 
-# --- League format ---------------------------------------------------------------
-# Starting slots. At runtime these are read from the league's own `roster_positions`
-# (Sleeper API) via slots_from_league(); the values below are the fallback if that is missing.
+# ==============================================================================
+# LINEUP CONFIGURATION
+# ==============================================================================
+
+# Default roster slots (overridden by league's actual roster_positions from Sleeper)
 LINEUP_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 2}
+
+# Fixed position slots (filled first in lineup optimization)
 FIXED_SLOT_ORDER = ("QB", "RB", "WR", "TE", "K", "DEF")
-# Flex slot name -> positions allowed in it (filled most-restrictive first)
+
+# Flexible slots and their eligible positions (filled second)
 FLEX_SLOTS = {
     "REC_FLEX": ("WR", "TE"),
     "WRRB_FLEX": ("WR", "RB"),
     "FLEX": ("WR", "RB", "TE"),
     "SUPER_FLEX": ("QB", "WR", "RB", "TE"),
 }
-FLEX_ELIGIBLE = FLEX_SLOTS["FLEX"]  # kept for compatibility
+
+# Legacy compatibility
+FLEX_ELIGIBLE = FLEX_SLOTS["FLEX"]
 
 
 def slots_from_league(roster_positions) -> dict:
-    """Count starting slots from Sleeper's roster_positions (e.g. ["QB","RB","RB",...,"BN"]).
-    Bench / IR / taxi / IDP entries are ignored. Falls back to LINEUP_SLOTS if nothing usable."""
+    """Parse league's roster format from Sleeper API.
+
+    Counts starting slots from roster_positions (e.g. ["QB","RB","RB","WR",...,"BN"]).
+    Ignores bench, IR, taxi, and IDP entries. Falls back to LINEUP_SLOTS if unusable.
+    """
     counts: dict = {}
     for name in roster_positions or []:
         if name in FIXED_SLOT_ORDER or name in FLEX_SLOTS:
@@ -126,15 +157,20 @@ def slots_from_league(roster_positions) -> dict:
     return counts or dict(LINEUP_SLOTS)
 
 
+# All positions in the league
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
-# Injury designations treated as "will not play this week"
+
+# Player statuses indicating they will not play this week
 OUT_STATUSES = {"Out", "IR", "PUP", "Sus", "NA", "Doubtful"}
 
-# --- Paths / HTTP ------------------------------------------------------------
+# ==============================================================================
+# PATHS AND HTTP CONFIGURATION
+# ==============================================================================
+
 CACHE_DIR = ROOT / ".cache"
 OUTPUT_DIR = ROOT / "recommendations"
 HTTP_TIMEOUT = 30
 HTTP_RETRIES = 3
 
-# ESPN uses a few different team abbreviations than Sleeper
+# ESPN team abbreviation mapping (ESPN uses different abbreviations than Sleeper)
 ESPN_TO_SLEEPER = {"WSH": "WAS"}

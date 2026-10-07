@@ -1,4 +1,8 @@
-"""Render results as CLI text, Markdown and JSON."""
+"""Format and export analysis results.
+
+Provides rendering functions for terminal output, Markdown reports, and JSON export
+of lineup recommendations and player evaluations.
+"""
 from __future__ import annotations
 
 import json

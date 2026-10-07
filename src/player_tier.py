@@ -1,14 +1,18 @@
-"""Player importance tiers.
+"""Player tier classification.
 
-Tier is derived from position rank, using Sleeper's `search_rank` (lower = more
-prominent player) among active players as a proxy for ADP/value.
+Assigns players to tiers (Elite, Mid, Bench, n/a) based on position rank derived from
+Sleeper's search_rank field (popularity metric, lower rank = more prominent player).
 
-Tier definitions (cutoffs and margins per position are in tier_cutoffs.json)
----------------------------------------------------------------------------
-- **Elite** (rank <= elite cutoff): unavailable Elite players are never dropped, and a free
-  agent needs the larger elite_swap_margin to displace an available one.
-- **Mid** (rank <= mid cutoff): unavailable Mid players are never dropped.
-- **Bench** (below that): droppable; free agents need the normal swap_margin.
+Tier definitions (from tier_cutoffs.json):
+  - Elite: rank <= elite_rank
+    * Unavailable Elite players are protected (never dropped)
+    * Available Elite players require elite_swap_margin to replace
+  - Mid: rank <= mid_rank
+    * Unavailable Mid players are protected (never dropped)
+    * Available Mid players require swap_margin to replace
+  - Bench: rank > mid_rank
+    * Droppable; requires only swap_margin to replace
+  - n/a: positions with no tier definitions (K, DEF)
 """
 from __future__ import annotations
 
