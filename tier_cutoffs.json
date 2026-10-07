@@ -1,0 +1,8 @@
+{
+  "QB":  { "elite_rank": 20,   "mid_rank": 30,   "swap_margin": 5, "elite_swap_margin": 8 },
+  "RB":  { "elite_rank": 20,   "mid_rank": 30,   "swap_margin": 5, "elite_swap_margin": 8 },
+  "WR":  { "elite_rank": 20,   "mid_rank": 30,   "swap_margin": 5, "elite_swap_margin": 8 },
+  "TE":  { "elite_rank": 5,    "mid_rank": 10,   "swap_margin": 3, "elite_swap_margin": 5 },
+  "K":   { "elite_rank": null, "mid_rank": null, "swap_margin": 2, "elite_swap_margin": null },
+  "DEF": { "elite_rank": null, "mid_rank": null, "swap_margin": 3, "elite_swap_margin": null }
+}
