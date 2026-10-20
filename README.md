@@ -86,10 +86,11 @@ The list holds every player on your roster at that position, plus the top 5 avai
 
 | Status | Meaning |
 |--------|---------|
-| `Starter: <SLOT>` | Rostered player in the optimal lineup at that slot |
+| `Starter: <SLOT>` | Rostered player in the optimal lineup at that slot (`(played)` if he already has points) |
 | `ADD to <SLOT>` | Free agent the recommender would pick up for that slot |
 | `DROP (for <name>)` | Rostered player the recommender would drop for that free agent |
 | `Bench` | Rostered player not in the optimal lineup |
+| `Bench - already played` | Benched player who already has points this week; stays benched |
 | `Bench - protected, out this week` | Unavailable Elite/Mid player who won't be dropped |
 | `Reserve / IR` | Player in an IR/reserve slot (never touched) |
 | `Free agent` | Free agent not recommended for pickup |
@@ -176,6 +177,7 @@ Invalid or missing entries in `tier_cutoffs.json` will cause the tool to exit wi
 
 - Elite and Mid-tier players marked unavailable (out, injured, bye) are never dropped
 - Players in IR/reserve slots are never touched
+- Players who already have points this week are locked: a played starter keeps his slot, a played bench player stays on the bench, and neither is ever dropped
 - Only positions used in your lineup can be dropped
 - Free agents on bye or listed as Out, Doubtful, IR, PUP, suspended, or NA are never recommended for pickup
 

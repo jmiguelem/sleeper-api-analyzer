@@ -25,7 +25,7 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 
 def _player_rows(players: list[PlayerEval]) -> list[list[str]]:
     return [
-        [p.position, p.name, p.tier, p.matchup_note, f"{p.proj:.1f}", _fmt_trend(p), f"{p.score:.1f}"]
+        [p.position, p.name + (" (played)" if p.played else ""), p.tier, p.matchup_note, f"{p.proj:.1f}", _fmt_trend(p), f"{p.score:.1f}"]
         for p in players
     ]
 
@@ -35,7 +35,7 @@ def _slot_rows(slots) -> list[list[str]]:
     for s in slots:
         if s.player:
             p = s.player
-            tag = " (ADD)" if s.is_add else ""
+            tag = " (ADD)" if s.is_add else " (played)" if p.played else ""
             rows.append([s.position, p.name + tag, p.position, p.tier, p.matchup_note,
                          f"{p.proj:.1f}", _fmt_trend(p), f"{p.score:.1f}"])
         else:

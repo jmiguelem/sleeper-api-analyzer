@@ -24,6 +24,21 @@ import recommender
 from sleeper_client import DataError, SleeperClient
 
 
+def lock_status(matchup: dict, roster_positions) -> tuple[set[str], dict[str, str]]:
+    """Players who already have points this week, and the slot each one is started in.
+
+    Sleeper's `starters` list follows roster_positions order (bench excluded); unfilled slots are "0".
+    """
+    points = matchup.get("players_points") or {}
+    played = {str(pid) for pid, pts in points.items() if pts}
+    names = [s for s in roster_positions or [] if s != "BN"]
+    locked = {}
+    for slot, pid in zip(names, matchup.get("starters") or []):
+        if str(pid) in played and (slot in config.FIXED_SLOT_ORDER or slot in config.FLEX_SLOTS):
+            locked[str(pid)] = slot
+    return played, locked
+
+
 def build(args) -> tuple:
     """Orchestrate analysis pipeline.
 
@@ -66,6 +81,17 @@ def build(args) -> tuple:
         teams = None
         warnings.append(f"ESPN defensive stats unavailable ({exc}); matchup adjustment disabled.")
 
+    played: set[str] = set()
+    locked: dict[str, str] = {}
+    if league.get("roster_positions"):
+        try:
+            played, locked = lock_status(client.get_my_matchup(week, mine.get("roster_id")),
+                                         league["roster_positions"])
+        except DataError as exc:
+            warnings.append(f"Matchup data unavailable ({exc}); players who already played are not locked.")
+    else:
+        warnings.append("Players who already played can't be locked without the league's roster_positions.")
+
     reserve = set(map(str, mine.get("reserve") or [])) | set(map(str, mine.get("taxi") or []))
     my_ids = [str(p) for p in mine.get("players") or []]
     roster = []
@@ -73,6 +99,8 @@ def build(args) -> tuple:
         ev = analyzer.evaluate(pid, players, proj_rows, scoring, trends, teams, pos_ranks,
                                on_reserve=pid in reserve)
         if ev:
+            ev.played = pid in played
+            ev.locked_slot = locked.get(pid)
             roster.append(ev)
 
     rostered = {str(p) for r in rosters for p in (r.get("players") or [])}

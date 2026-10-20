@@ -40,6 +40,8 @@ class PlayerEval:
     available: bool                  # False if bye or ruled out
     on_reserve: bool = False
     is_free_agent: bool = False
+    played: bool = False             # already has points this week: locked, can't be moved or dropped
+    locked_slot: Optional[str] = None  # slot it is already started in (played starters only)
 
 
 def composite_score(proj: float, trend: Optional[float], adj: float) -> float:

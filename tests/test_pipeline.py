@@ -24,6 +24,9 @@ class FakeClient:
     def get_my_roster(self, rosters=None):
         return self.get_rosters()[0]
 
+    def get_my_matchup(self, week, roster_id):
+        return {}
+
     def get_players(self):
         def p(pos, rank, name, inj=None):
             return {"position": pos, "team": "MIN", "search_rank": rank, "full_name": name,
@@ -67,3 +70,11 @@ def test_main_end_to_end(tmp_path, monkeypatch, capsys):
     assert "- **Justin Jefferson**" in md.split("## Injury / bye watch")[1]
     assert "current roster (+" in md  # positive gain
     assert not list(tmp_path.glob("*.json"))
+
+
+def test_lock_status_maps_played_starters_to_their_slots():
+    matchup = {"starters": ["a", "b", "0", "d"],
+               "players_points": {"a": 12.4, "b": 0.0, "c": 3.1, "d": -1.0}}
+    played, locked = main.lock_status(matchup, ["QB", "RB", "FLEX", "WR", "BN", "BN"])
+    assert played == {"a", "c", "d"}
+    assert locked == {"a": "QB", "d": "WR"}  # 'c' played but sat on the bench; 'b' hasn't played

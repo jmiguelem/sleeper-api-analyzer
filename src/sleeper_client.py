@@ -80,6 +80,13 @@ class SleeperClient:
                 return r
         raise DataError(f"No roster owned by user {self.user_id} in league {self.league_id}")
 
+    def get_my_matchup(self, week: int, roster_id) -> dict:
+        """This week's matchup row for a roster: starters (slot order) and live players_points. Never cached."""
+        for row in self._get(f"{API}/league/{self.league_id}/matchups/{week}") or []:
+            if str(row.get("roster_id")) == str(roster_id):
+                return row
+        return {}
+
     # -- players ----------------------------------------------------------
     def get_players(self) -> dict[str, dict]:
         """Full NFL player database (~10MB), cached for 24h."""

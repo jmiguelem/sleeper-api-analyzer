@@ -31,7 +31,7 @@ def status_map(result: recommender.Result, roster: list[PlayerEval]) -> dict[str
     """player_id -> what the full recommender does with that player."""
     status: dict[str, str] = {}
     for p in result.bench:
-        status[p.player_id] = "Bench"
+        status[p.player_id] = "Bench - already played" if p.played else "Bench"
     for p in result.watch:
         status[p.player_id] = "Bench - protected, out this week"
     for p in roster:
@@ -39,7 +39,8 @@ def status_map(result: recommender.Result, roster: list[PlayerEval]) -> dict[str
             status[p.player_id] = "Reserve / IR"
     for s in result.starters + result.flex:
         if s.player:
-            status[s.player.player_id] = f"{'ADD to ' if s.is_add else 'Starter: '}{s.position}"
+            status[s.player.player_id] = (f"{'ADD to ' if s.is_add else 'Starter: '}{s.position}"
+                                          f"{' (played)' if s.player.played else ''}")
     for m in result.moves:
         status[m.drop.player_id] = f"DROP (for {m.add.name})"
     return status

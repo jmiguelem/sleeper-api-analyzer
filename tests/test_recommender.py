@@ -4,12 +4,12 @@ import recommender
 from analyzer import PlayerEval
 
 
-def P(pid, pos, score, tier=player_tier.BENCH, available=True, opp="XYZ", injury=None, reserve=False, fa=False):
+def P(pid, pos, score, tier=player_tier.BENCH, available=True, opp="XYZ", injury=None, reserve=False, fa=False, played=False, locked=None):
     return PlayerEval(
         player_id=pid, name=f"P{pid}", position=pos, team="AAA", opponent=opp if available or injury else None,
         injury_status=injury, proj=score, trend=None, matchup_adj=0.0, matchup_note="vs XYZ",
         score=score if available else 0.0, tier=tier, pos_rank=None, available=available,
-        on_reserve=reserve, is_free_agent=fa,
+        on_reserve=reserve, is_free_agent=fa, played=played, locked_slot=locked,
     )
 
 
@@ -193,3 +193,27 @@ def test_margins_come_from_the_tier_file(monkeypatch):
     assert recommender.recommend(base_roster(), [fa]).moves  # shipped margin: moves
     monkeypatch.setattr(config, "TIERS", tiers)
     assert recommender.recommend(base_roster(), [fa]).moves == []
+
+
+def test_played_bench_player_stays_on_bench_and_is_not_dropped():
+    # 'pb' already scored but was benched: he is the best WR, yet must not take a slot or be dropped.
+    roster = base_roster() + [P("pb", "WR", 40, played=True)]
+    res = recommender.recommend(roster, [P("fa", "WR", strong("WR"), fa=True)])
+    assert "pb" not in names(res.starters + res.flex)
+    assert "pb" in {p.player_id for p in res.bench}
+    assert "pb" not in {m.drop.player_id for m in res.moves}
+
+
+def test_played_starter_keeps_its_slot_against_a_better_free_agent():
+    # r3 started in FLEX and already played: a stronger free agent must not take his slot.
+    roster = [P("r3", "RB", 3, played=True, locked="FLEX") if p.player_id == "r3" else p for p in base_roster()]
+    res = recommender.recommend(roster, [P("fa", "RB", strong("RB"), fa=True)])
+    assert [s.player.player_id for s in res.flex if s.player and s.player.player_id == "r3"] == ["r3"]
+    assert "r3" not in {m.drop.player_id for m in res.moves}
+
+
+def test_played_starter_keeps_fixed_slot_over_higher_scoring_teammate():
+    roster = [P("w1", "WR", 5, played=True, locked="WR"), P("w2", "WR", 19), P("w3", "WR", 18), P("w4", "WR", 17)]
+    res = recommender.recommend(roster, [], {"WR": 2})
+    assert "w1" in names(res.starters)
+    assert set(names(res.starters)) == {"w1", "w2"}

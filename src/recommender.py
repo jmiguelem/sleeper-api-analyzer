@@ -11,6 +11,9 @@ Ranking value calculation:
   - Available Elite players: score + (elite_swap_margin - swap_margin)
   - Other players: score
 
+Played players (already have points this week) are locked: a played starter keeps the slot it
+is in, a played non-starter stays on the bench, and neither can be dropped.
+
 Protection rules:
   - Elite/Mid unavailable players: never dropped (protected on bench)
   - IR/reserve players: never touched
@@ -88,19 +91,27 @@ def lineup_positions(slots: dict) -> set[str]:
 def _fill(pool: list[PlayerEval], slots: dict) -> tuple[list[LineupSlot], list[LineupSlot]]:
     """Fixed-position starters first, then flex slots (most restrictive first) from what is left."""
     used: set[str] = set()
+    locked: dict[str, list[PlayerEval]] = {}
+    for p in pool:
+        if p.played and p.locked_slot:
+            locked.setdefault(p.locked_slot, []).append(p)
     starters: list[LineupSlot] = []
     for pos in config.FIXED_SLOT_ORDER:
-        ranked = sorted((p for p in pool if p.position == pos and p.available), key=value, reverse=True)
+        held = iter(locked.get(pos, []))
+        ranked = sorted((p for p in pool if p.position == pos and p.available and not p.played),
+                        key=value, reverse=True)
         for i in range(slots.get(pos, 0)):
-            player = ranked[i] if i < len(ranked) else None
+            player = next(held, None) or (ranked.pop(0) if ranked else None)
             starters.append(LineupSlot(pos, player))
             if player:
                 used.add(player.player_id)
     flex: list[LineupSlot] = []
     for name, eligible in config.FLEX_SLOTS.items():
+        held = iter(locked.get(name, []))
         for _ in range(slots.get(name, 0)):
-            left = [p for p in pool if p.position in eligible and p.available and p.player_id not in used]
-            player = max(left, key=value, default=None)
+            left = [p for p in pool if p.position in eligible and p.available and not p.played
+                    and p.player_id not in used]
+            player = next(held, None) or max(left, key=value, default=None)
             flex.append(LineupSlot(name, player))
             if player:
                 used.add(player.player_id)
@@ -128,7 +139,8 @@ def recommend(roster: list[PlayerEval], free_agents: list[PlayerEval], slots: di
         adds = [s for s in slots if s.is_add]
         droppable = sorted(
             (p for p in active
-             if p.player_id not in in_lineup and p.position in usable and not _is_protected(p)),
+             if p.player_id not in in_lineup and p.position in usable and not _is_protected(p)
+             and not p.played),
             key=value,
         )
         surplus = len(adds) - len(droppable)
