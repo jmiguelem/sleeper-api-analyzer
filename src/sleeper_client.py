@@ -87,6 +87,15 @@ class SleeperClient:
                 return row
         return {}
 
+    def get_matchups(self, week: int, final: bool = False) -> list[dict]:
+        """Every team's matchup row for a week (schedule via matchup_id, scores via points).
+        Completed weeks never change, so pass final=True to cache them forever."""
+        load = lambda: self._get(f"{API}/league/{self.league_id}/matchups/{week}") or []
+        return cached(f"matchups_{self.league_id}_{week}", None, load, self.refresh) if final else load()
+
+    def get_users(self) -> list[dict]:
+        return self._get(f"{API}/league/{self.league_id}/users")
+
     # -- players ----------------------------------------------------------
     def get_players(self) -> dict[str, dict]:
         """Full NFL player database (~10MB), cached for 24h."""

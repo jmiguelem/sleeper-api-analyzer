@@ -39,6 +39,26 @@ python src/main.py --show-all      # Include top 5 free agents per position
 python src/main.py --refresh       # Skip cache, fetch fresh data
 ```
 
+### Rest-of-Season Planner
+
+```bash
+python src/season.py                          # current week through the last regular-season week
+python src/season.py --week 12 --through 14   # explicit range
+python src/season.py --max-moves 3 --show-all # cap the moves, list top free agents per week
+python src/season.py --margin-scale 0         # take any lineup improvement, however small
+```
+
+Use this when a deadline means your next add/drops are your last. `main.py` optimizes one week; `season.py` picks one set of moves judged over **every** remaining regular-season week (default: current week up to the week before `playoff_week_start`). It:
+
+1. Scores every rostered player and free agent for each remaining week (that week's Sleeper projection and opponent; recent form from the current week).
+2. Greedily chooses the add/drop that raises the **sum of optimal weekly lineup scores** the most, repeating until nothing clears the bar. A swap must add at least the position's `swap_margin` per week on average (`elite_swap_margin` when dropping an available Elite player); `--margin-scale` multiplies that bar. Bye weeks are handled, so a bench player who covers a bye is worth more than a scrub.
+3. Lists **close calls** (positive gains that missed the bar) and, for each move, backups for the same drop in case a claim fails.
+4. Simulates the league's remaining schedule (20,000 seasons) to show your **playoff odds now vs after the moves**, your win chance each week, how much each game swings your odds, and how your final win total maps to the playoffs.
+
+Never touched: IR/reserve players, injured Elite/Mid players, anyone who already has points this week. Players ruled Out/IR now are assumed gone for all remaining weeks ("Doubtful" counts for this week only). Results go to the terminal and `recommendations/rest_of_season_weeks_<A>-<B>.md`.
+
+Simulation assumptions: each team's weekly score is Normal with a mean of `ODDS_PROJ_WEIGHT` x projected lineup + the rest x its season average, and a spread measured from the league's own past weeks (`ODDS_DEFAULT_SD` if there is too little history). Ties in the standings break on points for. These constants live in `src/config.py`.
+
 ### Position-Specific Analysis
 
 ```bash
@@ -194,6 +214,8 @@ src/
   ├── recommender.py          Lineup optimization algorithm
   ├── report.py               Output formatting (terminal, markdown)
   ├── main.py                 Primary analysis entry point
+  ├── season.py               Rest-of-season planner (multi-week moves + playoff odds)
+  ├── odds.py                 Standings Monte Carlo used by season.py
   └── position.py             Per-position analysis script
 tests/                         Unit tests + full end-to-end mock run
 .cache/                        Cached API responses (gitignored)

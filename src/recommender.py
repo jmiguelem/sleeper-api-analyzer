@@ -88,8 +88,9 @@ def lineup_positions(slots: dict) -> set[str]:
     return pos
 
 
-def _fill(pool: list[PlayerEval], slots: dict) -> tuple[list[LineupSlot], list[LineupSlot]]:
-    """Fixed-position starters first, then flex slots (most restrictive first) from what is left."""
+def _fill(pool: list[PlayerEval], slots: dict, key=value) -> tuple[list[LineupSlot], list[LineupSlot]]:
+    """Fixed-position starters first, then flex slots (most restrictive first) from what is left.
+    `key` orders candidates (default: margin-adjusted `value`; season.py passes raw score)."""
     used: set[str] = set()
     locked: dict[str, list[PlayerEval]] = {}
     for p in pool:
@@ -99,7 +100,7 @@ def _fill(pool: list[PlayerEval], slots: dict) -> tuple[list[LineupSlot], list[L
     for pos in config.FIXED_SLOT_ORDER:
         held = iter(locked.get(pos, []))
         ranked = sorted((p for p in pool if p.position == pos and p.available and not p.played),
-                        key=value, reverse=True)
+                        key=key, reverse=True)
         for i in range(slots.get(pos, 0)):
             player = next(held, None) or (ranked.pop(0) if ranked else None)
             starters.append(LineupSlot(pos, player))
@@ -111,7 +112,7 @@ def _fill(pool: list[PlayerEval], slots: dict) -> tuple[list[LineupSlot], list[L
         for _ in range(slots.get(name, 0)):
             left = [p for p in pool if p.position in eligible and p.available and not p.played
                     and p.player_id not in used]
-            player = next(held, None) or max(left, key=value, default=None)
+            player = next(held, None) or max(left, key=key, default=None)
             flex.append(LineupSlot(name, player))
             if player:
                 used.add(player.player_id)

@@ -77,6 +77,7 @@ def evaluate(
     pos_ranks: dict[str, int],
     on_reserve: bool = False,
     is_free_agent: bool = False,
+    out_statuses=config.OUT_STATUSES,
 ) -> Optional[PlayerEval]:
     info = players.get(pid)
     if not info:
@@ -88,7 +89,7 @@ def evaluate(
     opponent = (row or {}).get("opponent") or None
     proj = projected_points(row, scoring) if row else 0.0
     injury = info.get("injury_status")
-    out = injury in config.OUT_STATUSES
+    out = injury in out_statuses
     available = bool(opponent) and not out
 
     if teams:

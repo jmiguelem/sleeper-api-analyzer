@@ -45,6 +45,13 @@ MATCHUP_SWING = 0.30
 # Number of recent weeks to average for trend calculation
 TREND_WEEKS = 3
 
+# Rest-of-season planner (src/season.py)
+# Team mean for the playoff simulation = weight x projected lineup + (1 - weight) x season average.
+ODDS_PROJ_WEIGHT = 0.5
+ODDS_SIMS = 20000
+ODDS_DEFAULT_SD = 27.0   # weekly team-score spread; replaced by the league's own history when available
+CANDIDATES_PER_POSITION = 10   # free agents per position the planner tries (ranked by rest-of-season score)
+
 # ==============================================================================
 # TIER CONFIGURATION
 # ==============================================================================
